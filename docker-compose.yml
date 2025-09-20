@@ -1,0 +1,59 @@
+# Versão do Docker Compose
+version: "3.8"
+
+# Definição dos serviços (contêineres)
+services:
+  # Serviço da aplicação Python
+  app:
+    # Constrói a imagem a partir do Dockerfile no diretório atual
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # Mantém o terminal ativo para que o contêiner não pare
+    tty: true
+    stdin_open: true
+    # Mapeamento de volumes
+    volumes:
+      # Mapeia o diretório local 'data' para '/data' no contêiner (somente leitura)
+      # É assim que o script de carga acessa 'snap_amazon.txt'
+      - ./data:/data:ro
+      # Mapeia um diretório local 'out' para '/app/out' no contêiner
+      # Os relatórios/CSVs salvos pelo script aparecerão aqui na sua máquina
+      - ./out:/app/out
+      # (Opcional, para desenvolvimento) Mapeia o código-fonte para dentro do contêiner
+      # Permite alterar o código Python sem precisar reconstruir a imagem
+      - ./src:/app/src
+    # Garante que o serviço 'db' esteja pronto antes do 'app' iniciar
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Serviço do banco de dados PostgreSQL
+  db:
+    # Imagem oficial do PostgreSQL, versão Alpine (mais leve)
+    image: postgres:13-alpine
+    # Configuração do banco de dados através de variáveis de ambiente
+    # Estes valores DEVEM ser os mesmos usados nos comandos 'run'
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ecommerce
+    # Mapeia a porta do contêiner para a máquina local (opcional, útil para debug)
+    ports:
+      - "5432:5432"
+    # Volume nomeado para persistir os dados do banco de dados
+    # Sem isso, os dados seriam perdidos ao rodar 'docker compose down'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # Verificação de saúde: garante que o banco de dados está pronto para aceitar conexões
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ecommerce"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# Definição dos volumes nomeados
+volumes:
+  postgres_data:
+    # O driver 'local' é o padrão, mas é bom ser explícito
+    driver: local

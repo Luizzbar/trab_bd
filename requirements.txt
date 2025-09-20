@@ -1,0 +1,4 @@
+# tp1/requirements.txt
+
+psycopg2-binary
+pandas
